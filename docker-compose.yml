@@ -1,0 +1,60 @@
+version: "3.9"
+
+networks:
+  default:
+    name: telegram-resturant-bot
+    driver: bridge
+
+services:
+  app:
+    container_name: resturant-bot
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    image: resturant/app-base:latest
+    restart: always
+    env_file:
+      - ./.env
+    networks:
+      - default
+    ports:
+      - ${APP_PORT}:${APP_PORT}
+    volumes:
+      - .:/opt
+      - ./docker/storage:${APP_STORAGE_PATH}:rw
+    working_dir: /opt
+    depends_on:
+      - db_mongo
+    command: sh ./start.sh
+  
+  db_mongo:
+    container_name: resturant-bot-db-mongo
+    image: mongo:6.0.3
+    restart: always
+    hostname: ${MONGO_HOSTNAME}
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_USERNAME: ${MONGO_INITDB_USERNAME}
+      MONGO_INITDB_PASSWORD: ${MONGO_INITDB_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+    networks:
+      - default
+    volumes:
+      - ./docker/volumes/db_mongo/data:/data/db:rw
+      - ./docker/db_mongo_initdb.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
+  mongo_express:
+    container_name: resturant-bot-db-mongo-express
+    image: mongo-express
+    restart: always
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_USERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_INITDB_USERNAME}:${MONGO_INITDB_PASSWORD}@${MONGO_HOSTNAME}:${MONGO_PORT}/${MONGO_INITDB_DATABASE}
+    networks:
+      - default
+    ports:
+      - 8083:8083
+    depends_on:
+      - db_mongo

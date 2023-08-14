@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders List</title>
+</head>
+<body>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Order ID</th>
+                <th>Customer Name</th>
+                <th>Phone Number</th>
+                <th>Item</th>
+                <th>Quantity</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% orders.forEach(order => { %>
+                <tr>
+                    <td rowspan="<%= order.items.length %>"><%= order._id %></td>
+                    <td rowspan="<%= order.items.length %>"><%= order.customer.name %></td>
+                    <td rowspan="<%= order.items.length %>"><%= order.customer.phoneNumber %></td>
+                    <% order.items.forEach((item, index) => { %>
+                        <% /* جستجوی نام غذا بر اساس menuId */ %>
+                        <% const menuItem = menuItems.find(menu => menu._id.equals(item.menuId)) %>
+                        <% if (index > 0) { %>
+                            </tr><tr> <!-- اضافه کردن سطر جدید برای غذاهای بعدی -->
+                        <% } %>
+                        <td><%= menuItem ? menuItem.itemName : 'Unknown Item' %></td>
+                        <td><%= item.quantity %></td>
+                    <% }); %>
+                </tr>
+            <% }); %>
+        </tbody>
+    </table>
+</body>
+</html>
