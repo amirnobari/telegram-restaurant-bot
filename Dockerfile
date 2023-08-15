@@ -1,25 +1,20 @@
-# استفاده از تصویر رسمی Node.js به عنوان پایه
+# Use the official Node.js image as the base image
 FROM node:18.14.0-alpine
 
-# تعیین مسیر کاری درون کانتینر
+# Set the working directory inside the container
 WORKDIR /app
 
-# کپی فایل‌های مورد نیاز به کانتینر
+# Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
 
-# نصب وابستگی‌ها
+# Install project dependencies
 RUN npm install
 
-# کپی سایر فایل‌ها
+# Copy the rest of the application code to the container
 COPY . .
 
-# تنظیمات MongoDB
-ENV MONGO_HOST=mongodb
-ENV MONGO_PORT=27017
-ENV MONGO_DB=mydatabase
+# Expose the port that the application will run on
+EXPOSE 5555
 
-# پورتی که برنامه شما در آن اجرا می‌شود
-EXPOSE 3000
-
-# دستور اجرای برنامه
+# Start the application
 CMD ["node", "bot.js"]
