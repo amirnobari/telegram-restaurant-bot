@@ -1,22 +1,23 @@
 const express = require('express')
+const app = express()
 const bodyParser = require('body-parser')
 const mongoose = require('mongoose')
 const path = require('path')
 const ejs = require('ejs')
-const app = express()
 const botController = require('./controllers/botController')
 const menuRoute = require('./routes/menuRoute') // اضافه کردن مسیر منو
-
-
 require('dotenv').config()
 
+app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
+
+
 app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
 
 const ordersRouter = require('./routes/ordersRoute')
 
-mongoose.connect(`mongodb://${process.env.MONGO_HOSTNAME}:${process.env.MONGO_PORT}/${process.env.MONGO_DB_NAME}`, {
+mongoose.connect('mongodb://127.0.0.1/restaurant', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 }).then(() => {
@@ -27,7 +28,6 @@ mongoose.connect(`mongodb://${process.env.MONGO_HOSTNAME}:${process.env.MONGO_PO
 
 app.use('/orders', ordersRouter)
 app.use('/menus', menuRoute) // اضافه کردن مسیر منو
-
 
 botController.setupBot()
 

@@ -130,6 +130,8 @@ const setupBot = () => {
             const currentStep = steps[chatId]
 
             if (currentStep && currentStep.step === 'confirmOrder') {
+                currentStep.order.customer = {} // ایجاد متغیر customer
+
                 bot.sendMessage(chatId, 'Please enter your phone number:', {
                     reply_markup: {
                         force_reply: true
@@ -140,9 +142,23 @@ const setupBot = () => {
                 currentStep.step = 'waitForPhoneNumber'
                 steps[chatId] = currentStep
             }
+        }
+        else if (option === 'provide_address') { // اضافه کردن این قسمت
+            const currentStep = steps[chatId]
 
+            if (currentStep && currentStep.step === 'waitForPhoneNumber') {
+                bot.sendMessage(chatId, 'Please provide your address:', {
+                    reply_markup: {
+                        force_reply: true
+                    }
+                })
 
-        } else if (option === 'cancel_order') {
+                // تغییر مرحله به انتظار دریافت آدرس
+                currentStep.step = 'waitForAddress'
+                steps[chatId] = currentStep
+            }
+        }
+        else if (option === 'cancel_order') {
             // حذف مرحله سفارش کنونی از متغیر مراحل
             delete steps[chatId]
 
@@ -194,6 +210,7 @@ const setupBot = () => {
     })
 
     // ...
+
     bot.on('text', async (msg) => {
         const chatId = msg.chat.id
         const text = msg.text
@@ -204,7 +221,33 @@ const setupBot = () => {
             const phoneNumber = text
 
             try {
-                // ذخیره شماره تلفن در سفارش و ذخیره سفارش در دیتابیس
+                // ذخیره شماره تلفن در سفارش
+                currentStep.order.customer.phoneNumber = phoneNumber
+
+                // ارسال پیام و افزودن گزینه دریافت آدرس به منو
+                bot.sendMessage(chatId, 'Phone number saved. Please provide your address:', {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: 'Provide Address', callback_data: 'provide_address' }]
+                        ]
+                    }
+                })
+
+                // تغییر مرحله به انتظار دریافت آدرس
+                currentStep.step = 'waitForAddress'
+                steps[chatId] = currentStep
+            } catch (error) {
+                console.error('Error saving phone number:', error)
+                bot.sendMessage(chatId, 'An error occurred while saving your phone number.')
+            }
+        } else if (currentStep && currentStep.step === 'waitForAddress') {
+            const address = text
+
+            try {
+                // ذخیره آدرس در سفارش
+                currentStep.order.customer.address = address
+
+                // ذخیره سفارش در دیتابیس
                 const newOrder = new Order({
                     items: currentStep.order.items.map(item => {
                         return {
@@ -214,7 +257,8 @@ const setupBot = () => {
                     }),
                     customer: {
                         name: msg.from.username,
-                        phoneNumber: phoneNumber
+                        phoneNumber: currentStep.order.customer.phoneNumber,
+                        address: address
                     }
                 })
 
@@ -231,6 +275,9 @@ const setupBot = () => {
             }
         }
     })
+
+    // ...
+
 }
 module.exports = {
     setupBot
