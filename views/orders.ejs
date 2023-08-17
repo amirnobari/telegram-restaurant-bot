@@ -1,45 +1,49 @@
+<!-- در فایل orders.ejs -->
+
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<!-- ... -->
-	</head>
-	<body>
-		<table border="1">
-			<thead>
-				<tr>
-					<!-- اضافه کردن ستون آدرس -->
-					<th>Order ID</th>
-					<th>Customer Name</th>
-					<th>Phone Number</th>
-					<th>Address</th>
-					<th>Item</th>
-					<th>Quantity</th>
-				</tr>
-			</thead>
-			<tbody>
-				<% orders.forEach(order => { %>
-					<% const address = order.customer ? order.customer.address : 'Unknown Address'; %>
-					<% order.items.forEach((item, index) => { %>
-						<% const menuItem = menuItems.find(menu => menu._id.equals(item.menuId)) %>
-						<% if (index === 0) { %>
-							<tr>
-								<td rowspan="<%= order.items.length %>"><%= order._id %></td>
-								<td rowspan="<%= order.items.length %>"><%= order.customer ? order.customer.name : 'Unknown Customer' %></td>
-								<td rowspan="<%= order.items.length %>"><%= order.customer ? order.customer.phoneNumber : 'Unknown Phone Number' %></td>
-								<td rowspan="<%= order.items.length %>"><%= address %></td>
-								<!-- افزودن آدرس -->
-								<td><%= menuItem ? menuItem.itemName : 'Unknown Item' %></td>
-								<td><%= item.quantity %></td>
-							</tr>
-						<% } else { %>
-							<tr>
-								<td><%= menuItem ? menuItem.itemName : 'Unknown Item' %></td>
-								<td><%= item.quantity %></td>
-							</tr>
-						<% } %>
-					<% }); %>
-				<% }); %>
-			</tbody>
-		</table>
-	</body>
+<head>
+    <!-- ... -->
+</head>
+<body>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Order ID</th>
+                <th>Customer Name</th>
+                <th>Phone Number</th>
+                <th>Telegram Phone Number</th> <!-- اضافه کردن ستون شماره تلفن تلگرامی -->
+                <th>Address</th>
+                <th>Item</th>
+                <th>Quantity</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% orders.forEach(order => { %>
+                <% const address = order.customer ? order.customer.address : 'Unknown Address'; %>
+                <% const telegramPhoneNumber = order.customer ? order.customer.telegramPhoneNumber : 'Unknown Phone Number'; %>
+                <% order.items.forEach((item, index) => { %>
+                    <% const menuItem = menuItems.find(menu => menu._id.equals(item.menuId)) %>
+                    <% if (index === 0) { %>
+                        <tr>
+                            <td rowspan="<%= order.items.length %>"><%= order._id %></td>
+                            <td rowspan="<%= order.items.length %>"><%= order.customer ? order.customer.name : 'Unknown Customer' %></td>
+                            <td rowspan="<%= order.items.length %>"><%= order.customer ? order.customer.phoneNumber : 'Unknown Phone Number' %></td>
+                            <td rowspan="<%= order.items.length %>"><%= telegramPhoneNumber %></td>
+                            <td rowspan="<%= order.items.length %>"><%= address %></td>
+                            <!-- اضافه کردن آدرس -->
+                            <td><%= menuItem ? menuItem.itemName : 'Unknown Item' %></td>
+                            <td><%= item.quantity %></td>
+                        </tr>
+                    <% } else { %>
+                        <tr>
+                            <td><%= menuItem ? menuItem.itemName : 'Unknown Item' %></td>
+                            <td><%= item.quantity %></td>
+                        </tr>
+                    <% } %>
+                <% }); %>
+            <% }); %>
+        </tbody>
+    </table>
+</body>
 </html>
