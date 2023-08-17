@@ -9,29 +9,49 @@ const steps = {}
 
 //تنظیمات بات که یم ماژول شده
 const setupBot = () => {
-    bot.onText(/\/start/, (msg) => {
+    bot.onText(/\/start/, async (msg) => {
         const chatId = msg.chat.id
         const firstName = msg.from.first_name
+        const telegramPhoneNumber = msg.contact ? msg.contact.phone_number : null // دریافت شماره تلفن تلگرامی از پیام تماس
 
-        bot.sendMessage(chatId, `Welcome, ${firstName}! Please choose items from the menu:`, {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: 'Menu', callback_data: 'menu' }]
-                ]
+        try {
+            // ذخیره اطلاعات کاربر به دیتابیس
+            const customer = {
+                name: firstName,
+                phoneNumber: telegramPhoneNumber
             }
-        })
 
-        // ذخیره مرحله انتخاب غذاها
-        steps[chatId] = {
-            step: 'chooseItems',
-            order: {
-                chatId: chatId,
-                items: []
+            const newOrder = new Order({
+                customer: customer
+            })
+
+            await newOrder.save()
+            console.log('User information saved:', customer)
+
+            bot.sendMessage(chatId, `Welcome, ${firstName}! Please choose items from the menu:`, {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Menu', callback_data: 'menu' }]
+                    ]
+                }
+            })
+
+            // ذخیره مرحله انتخاب غذاها
+            steps[chatId] = {
+                step: 'chooseItems',
+                order: {
+                    chatId: chatId,
+                    items: []
+                }
             }
+        } catch (error) {
+            console.error('Error saving user information:', error)
+            bot.sendMessage(chatId, 'An error occurred while saving your information. Please try again.')
         }
     })
+    // الگوی اعتبارسنجی شماره تلفن (مثال: +989123456789)
+    const phonePattern = /^\+?[0-9]{12}$/ // تغییر الگو به 12 عدد برای مطابقت با "+989" و 9 رقم پیش‌شماره ایران
 
-    // ...
     bot.on('callback_query', async (query) => {
         const chatId = query.message.chat.id
         const option = query.data
@@ -132,7 +152,7 @@ const setupBot = () => {
             if (currentStep && currentStep.step === 'confirmOrder') {
                 currentStep.order.customer = {} // ایجاد متغیر customer
 
-                bot.sendMessage(chatId, 'Please enter your phone number:', {
+                bot.sendMessage(chatId, 'Please enter your phone number(Example : +989100000000):', {
                     reply_markup: {
                         force_reply: true
                     }
@@ -219,30 +239,32 @@ const setupBot = () => {
 
         if (currentStep && currentStep.step === 'waitForPhoneNumber') {
             const phoneNumber = text
+            if (phonePattern.test(phoneNumber)) {
+                try {
+                    // ذخیره شماره تلفن در سفارش
+                    currentStep.order.customer.phoneNumber = phoneNumber
 
-            try {
-                // ذخیره شماره تلفن در سفارش
-                currentStep.order.customer.phoneNumber = phoneNumber
+                    // ارسال پیام و افزودن گزینه دریافت آدرس به منو
+                    bot.sendMessage(chatId, 'Phone number saved. Please provide your address:', {
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: 'Provide Address', callback_data: 'provide_address' }]
+                            ]
+                        }
+                    })
 
-                // ارسال پیام و افزودن گزینه دریافت آدرس به منو
-                bot.sendMessage(chatId, 'Phone number saved. Please provide your address:', {
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: 'Provide Address', callback_data: 'provide_address' }]
-                        ]
-                    }
-                })
-
-                // تغییر مرحله به انتظار دریافت آدرس
-                currentStep.step = 'waitForAddress'
-                steps[chatId] = currentStep
-            } catch (error) {
-                console.error('Error saving phone number:', error)
-                bot.sendMessage(chatId, 'An error occurred while saving your phone number.')
+                    // تغییر مرحله به انتظار دریافت آدرس
+                    currentStep.step = 'waitForAddress'
+                    steps[chatId] = currentStep
+                } catch (error) {
+                    console.error('Error saving phone number:', error)
+                    bot.sendMessage(chatId, 'An error occurred while saving your phone number.')
+                }
+            } else {
+                bot.sendMessage(chatId, 'Invalid phone number. Please provide a valid phone number.')
             }
         } else if (currentStep && currentStep.step === 'waitForAddress') {
             const address = text
-
             try {
                 // ذخیره آدرس در سفارش
                 currentStep.order.customer.address = address
@@ -282,3 +304,4 @@ const setupBot = () => {
 module.exports = {
     setupBot
 }
+
