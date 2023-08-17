@@ -10,7 +10,9 @@ const orderSchema = new mongoose.Schema({
     customer: {
         name: String,
         phoneNumber: String,
-        address: String
+        address: String,
+        telegramPhoneNumber: String // اضافه کردن شماره تلفن تلگرامی
+
     }
 })
 
