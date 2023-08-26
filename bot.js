@@ -6,16 +6,18 @@ const path = require('path')
 const ejs = require('ejs')
 const botController = require('./controllers/botController')
 const menuRoute = require('./routes/menuRoute') // اضافه کردن مسیر منو
-require('dotenv').config()
+const ordersRouter = require('./routes/ordersRoute')
+const foodSensitivityRoute = require('./routes/foodSensitivityRoute') // مسیر به فایل foodSensitivityRoute.js
+
+require('dotenv').config() 
 
 app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json())
+app.use(bodyParser.json());
 
 
 app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
 
-const ordersRouter = require('./routes/ordersRoute')
 
 mongoose.connect('mongodb://127.0.0.1/restaurant', {
     useNewUrlParser: true,
@@ -28,6 +30,7 @@ mongoose.connect('mongodb://127.0.0.1/restaurant', {
 
 app.use('/orders', ordersRouter)
 app.use('/menus', menuRoute) // اضافه کردن مسیر منو
+app.use('/foodSensitivity', foodSensitivityRoute) // استفاده از روت‌های foodSensitivity
 
 botController.setupBot()
 

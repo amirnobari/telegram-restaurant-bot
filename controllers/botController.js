@@ -1,53 +1,32 @@
 const TelegramBot = require('node-telegram-bot-api')
 const Order = require('../models/orderModel')
 const Menu = require('../models/menuModel')
+const UserInfo = require('../models/userInfoModel')
+const setupFoodSensitivity = require('./foodSensitivity')
 require('dotenv').config()
-
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true })
-
 const steps = {}
-
 //تنظیمات بات که یم ماژول شده
 const setupBot = () => {
     bot.onText(/\/start/, async (msg) => {
         const chatId = msg.chat.id
         const firstName = msg.from.first_name
-        const telegramPhoneNumber = msg.contact ? msg.contact.phone_number : null // دریافت شماره تلفن تلگرامی از پیام تماس
+        const lastName = msg.from.last_name // افزودن این خط برای گرفتن نام خانوادگی
 
-        try {
-            // ذخیره اطلاعات کاربر به دیتابیس
-            const customer = {
-                name: firstName,
-                phoneNumber: telegramPhoneNumber
+        // ذخیره مرحله انتخاب شماره تلفن و آدرس
+        steps[chatId] = {
+            step: 'waitForPhoneNumber',
+            order: {
+                chatId: chatId,
+                items: []
             }
-
-            const newOrder = new Order({
-                customer: customer
-            })
-
-            await newOrder.save()
-            console.log('User information saved:', customer)
-
-            bot.sendMessage(chatId, `Welcome, ${firstName}! Please choose items from the menu:`, {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: 'Menu', callback_data: 'menu' }]
-                    ]
-                }
-            })
-
-            // ذخیره مرحله انتخاب غذاها
-            steps[chatId] = {
-                step: 'chooseItems',
-                order: {
-                    chatId: chatId,
-                    items: []
-                }
-            }
-        } catch (error) {
-            console.error('Error saving user information:', error)
-            bot.sendMessage(chatId, 'An error occurred while saving your information. Please try again.')
         }
+
+        bot.sendMessage(chatId, `Welcome, ${firstName} ${lastName}! Please provide your phone number (Example: +98910000000):`, {
+            reply_markup: {
+                force_reply: true
+            }
+        })
     })
     // الگوی اعتبارسنجی شماره تلفن (مثال: +989123456789)
     const phonePattern = /^\+?[0-9]{12}$/ // تغییر الگو به 12 عدد برای مطابقت با "+989" و 9 رقم پیش‌شماره ایران
@@ -55,253 +34,247 @@ const setupBot = () => {
     bot.on('callback_query', async (query) => {
         const chatId = query.message.chat.id
         const option = query.data
+        const text = query.message.text
+        if (steps[chatId]) {
+            // const currentStep = steps[chatId]
+            if (option === 'menu') {
+                try {
+                    const menuItems = await Menu.find({})
+                    if (menuItems.length === 0) {
+                        bot.sendMessage(chatId, 'There are no items available in the menu.')
+                    } else {
+                        const orderData = steps[chatId].order
 
-        if (option === 'menu') {
-            try {
-                const menuItems = await Menu.find({})
-                if (menuItems.length === 0) {
-                    bot.sendMessage(chatId, 'There are no items available in the menu.')
-                } else {
-                    const orderData = steps[chatId].order
+                        let menuMessage = 'Please choose items from the menu:\n'
+                        menuItems.forEach((item, index) => {
+                            menuMessage += `${index + 1} - ${item.itemName} - ${item.price} $ \n`
 
-                    let menuMessage = 'Please choose items from the menu:\n'
-                    menuItems.forEach((item, index) => {
-                        menuMessage += `${index + 1} - ${item.itemName} - ${item.price} $ \n`
-
-                        orderData.items.push({
-                            menuId: item._id,
-                            name: item.itemName,
-                            price: item.price,
-                            quantity: 0
+                            orderData.items.push({
+                                menuId: item._id,
+                                name: item.itemName,
+                                price: item.price,
+                                quantity: 0
+                            })
                         })
-                    })
 
-
-                    bot.sendMessage(chatId, menuMessage, {
-                        reply_markup: {
-                            inline_keyboard: [
-                                ...menuItems.map((item, index) => {
-                                    return [{ text: `+ ${item.itemName}`, callback_data: `add_${index}` }]
-                                }),
-                                [{ text: 'Confirm Order', callback_data: 'confirm' }]
-                            ]
-                        }
-                    })
-
-                    steps[chatId].step = 'chooseItems'
-                }
-            } catch (error) {
-                console.error('Error fetching menu:', error)
-                bot.sendMessage(chatId, 'An error occurred while fetching the menu.')
-            }
-
-        } else if (option.startsWith('add_')) {
-            const itemIndex = parseInt(option.split('_')[1])
-            const currentStep = steps[chatId]
-
-            if (currentStep && currentStep.step === 'chooseItems') {
-                const selectedMenuItem = currentStep.order.items[itemIndex]
-                selectedMenuItem.quantity += 1
-
-                // به روز رسانی دکمه‌ها برای نمایش تعداد انتخاب شده
-                const updatedKeyboard = currentStep.order.items.map((item, index) => {
-                    return [{ text: `${item.quantity}x ${item.name}`, callback_data: `add_${index}` }]
-                })
-
-                updatedKeyboard.push([{ text: 'Confirm Order', callback_data: 'confirm' }])
-
-                bot.sendMessage(chatId, 'You have added an item to your order.', {
-                    reply_markup: {
-                        inline_keyboard: updatedKeyboard
+                        bot.sendMessage(chatId, menuMessage, {
+                            reply_markup: {
+                                inline_keyboard: [
+                                    ...menuItems.map((item, index) => {
+                                        return [{ text: `+ ${item.itemName}`, callback_data: `add_${index}` }]
+                                    }),
+                                    [{ text: 'Confirm Order', callback_data: 'confirm' }]
+                                ]
+                            }
+                        })
+                        steps[chatId].step = 'chooseItems'
                     }
-                })
+                } catch (error) {
+                    console.error('Error fetching menu:', error)
+                    bot.sendMessage(chatId, 'An error occurred while fetching the menu.')
+                }
 
-                // ذخیره اطلاعات سفارش به روز شده
-                steps[chatId] = currentStep
-            }
-        } else if (option === 'confirm') {
-            const currentStep = steps[chatId]
 
-            if (currentStep && currentStep.step === 'chooseItems') {
-                const totalItems = currentStep.order.items.reduce((total, item) => total + item.quantity, 0)
+            } else if (option.startsWith('add_')) {
+                const itemIndex = parseInt(option.split('_')[1])
+                const currentStep = steps[chatId]
 
-                if (totalItems === 0) {
-                    bot.sendMessage(chatId, 'Your order basket is empty. Please choose items before confirming.')
-                } else {
-                    const orderTotal = currentStep.order.items.reduce((total, item) => {
-                        return total + item.price * item.quantity
-                    }, 0)
+                if (currentStep && currentStep.step === 'chooseItems') {
+                    const selectedMenuItem = currentStep.order.items[itemIndex]
+                    selectedMenuItem.quantity += 1
+                    console.log(selectedMenuItem)
+                    // به روز رسانی دکمه‌ها برای نمایش تعداد انتخاب شده
+                    const updatedKeyboard = currentStep.order.items.map((item, index) => {
+                        return [{ text: `${item.quantity}x ${item.name}`, callback_data: `add_${index}` }]
+                    })
 
-                    bot.sendMessage(chatId, `Your order total is: $ ${orderTotal} . Please confirm your order by pressing the "Confirm" button below.`, {
+                    updatedKeyboard.push([{ text: 'Confirm Order', callback_data: 'confirm' }])
+
+                    bot.sendMessage(chatId, 'You have added an item to your order.', {
                         reply_markup: {
-                            inline_keyboard: [
-                                [{ text: 'Confirm Order', callback_data: 'place_order' }],
-                                [{ text: 'Cancel', callback_data: 'cancel_order' }]
-                            ]
+                            inline_keyboard: updatedKeyboard
                         }
                     })
 
-                    // ذخیره مرحله انتخاب نهایی سفارش
-                    currentStep.step = 'confirmOrder'
+                    // ذخیره اطلاعات سفارش به روز شده
                     steps[chatId] = currentStep
                 }
-            }
-        } else if (option === 'place_order') {
-            const currentStep = steps[chatId]
+            } else if (option === 'confirm') {
+                const currentStep = steps[chatId]
+                //  console.log(currentStep)
+                if (currentStep && currentStep.step === 'chooseItems') {
+                    const totalItems = currentStep.order.items.reduce((total, item) => total + item.quantity, 0)
+                    //  console.log(totalItems)
 
-            if (currentStep && currentStep.step === 'confirmOrder') {
-                currentStep.order.customer = {} // ایجاد متغیر customer
-
-                bot.sendMessage(chatId, 'Please enter your phone number(Example : +989100000000):', {
-                    reply_markup: {
-                        force_reply: true
-                    }
-                })
-
-                // تغییر مرحله به انتظار دریافت شماره تلفن
-                currentStep.step = 'waitForPhoneNumber'
-                steps[chatId] = currentStep
-            }
-        }
-        else if (option === 'provide_address') { // اضافه کردن این قسمت
-            const currentStep = steps[chatId]
-
-            if (currentStep && currentStep.step === 'waitForPhoneNumber') {
-                bot.sendMessage(chatId, 'Please provide your address:', {
-                    reply_markup: {
-                        force_reply: true
-                    }
-                })
-
-                // تغییر مرحله به انتظار دریافت آدرس
-                currentStep.step = 'waitForAddress'
-                steps[chatId] = currentStep
-            }
-        }
-        else if (option === 'cancel_order') {
-            // حذف مرحله سفارش کنونی از متغیر مراحل
-            delete steps[chatId]
-
-            // رفتن به مرحله انتخاب غذاها
-            try {
-                const menuItems = await Menu.find({})
-                if (menuItems.length === 0) {
-                    bot.sendMessage(chatId, 'There are no items available in the menu.')
-                } else {
-                    const orderData = {
-                        chatId: chatId,
-                        items: []
-                    }
-
-                    let menuMessage = 'Please choose items from the menu:\n'
-                    menuItems.forEach((item, index) => {
-                        menuMessage += `${index + 1} - ${item.itemName} - ${item.price} $ \n`
-
-                        orderData.items.push({
-                            menuId: item._id,
-                            name: item.itemName,
-                            price: item.price,
-                            quantity: 0
+                    if (totalItems === 0) {
+                        bot.sendMessage(chatId, 'Your order basket is empty. Please choose items before confirming.')
+                    } else {
+                        const orderTotal = currentStep.order.items.reduce((total, item) => {
+                            return total + item.price * item.quantity
+                        }, 0)
+                        // console.log(orderTotal)
+                        bot.sendMessage(chatId, `Your order total is: $ ${orderTotal} . Please confirm your order by pressing the "Confirm" button below.`, {
+                            reply_markup: {
+                                inline_keyboard: [
+                                    [{ text: 'Place Order', callback_data: 'place_order' }],
+                                    [{ text: 'Cancel', callback_data: 'cancel_order' }]
+                                ]
+                            }
                         })
-                    })
 
-                    bot.sendMessage(chatId, menuMessage, {
-                        reply_markup: {
-                            inline_keyboard: [
-                                ...menuItems.map((item, index) => {
-                                    return [{ text: `+ ${item.itemName}`, callback_data: `add_${index}` }]
-                                }),
-                                [{ text: 'Confirm Order', callback_data: 'confirm' }]
-                            ]
-                        }
-                    })
-
-                    steps[chatId] = {
-                        step: 'chooseItems',
-                        order: orderData
+                        // Update the step to 'confirmOrder' and save the changes
+                        currentStep.step = 'confirmOrder'
+                        steps[chatId] = currentStep // Save the changes back to the steps object
                     }
                 }
-            } catch (error) {
-                console.error('Error fetching menu:', error)
-                bot.sendMessage(chatId, 'An error occurred while fetching the menu.')
+            } else if (option === 'cancel_order') {
+                const currentStep = steps[chatId]
+                if (currentStep && currentStep.step === 'confirmOrder') {
+                    handleMenuOption(chatId) // Return to the menu options
+                }
+            } else if (option === 'place_order') {
+                const currentStep = steps[chatId]
+                //console.log(currentStep);
+                if (currentStep && currentStep.step === 'confirmOrder') {
+                    currentStep.order.customer = {}
+                    if (currentStep.order.customer) {
+                        const orderItems = currentStep.order.items.filter(item => item.quantity > 0) // حذف آیتم‌هایی که تعدادشان 0 است
+                        if (orderItems.length > 0) {
+                            // Create a new instance of the Order model
+                            const order = new Order({
+                                items: orderItems,
+                            })
+
+                            try {
+
+                                // Save the order to the database
+                                await order.save()
+
+                                // Inform the user that the order has been placed
+                                bot.sendMessage(chatId, 'Your order has been placed successfully.')
+
+                                // Clean up the steps object
+                                delete steps[chatId]
+                            } catch (error) {
+                                console.error('Error saving order:', error)
+                                bot.sendMessage(chatId, 'An error occurred while placing your order.')
+                            }
+                        } else {
+                            bot.sendMessage(chatId, 'Your order basket is empty. Please choose items before confirming.')
+                        }
+                    }
+
+                }
             }
+
         }
-
     })
-
-    // ...
-
     bot.on('text', async (msg) => {
         const chatId = msg.chat.id
         const text = msg.text
-
         const currentStep = steps[chatId]
 
-        if (currentStep && currentStep.step === 'waitForPhoneNumber') {
-            const phoneNumber = text
-            if (phonePattern.test(phoneNumber)) {
-                try {
-                    // ذخیره شماره تلفن در سفارش
-                    currentStep.order.customer.phoneNumber = phoneNumber
+        if (currentStep) {
+            if (currentStep.step === 'waitForPhoneNumber') {
+                const phoneNumber = text
+                if (phonePattern.test(phoneNumber)) {
+                    currentStep.userInfo = new UserInfo({
+                        phoneNumber: phoneNumber,
+                        address: '',
+                        firstname: msg.from.first_name,
+                        lastname: msg.from.last_name
+                    })
+                    await currentStep.userInfo.save()
 
-                    // ارسال پیام و افزودن گزینه دریافت آدرس به منو
                     bot.sendMessage(chatId, 'Phone number saved. Please provide your address:', {
                         reply_markup: {
-                            inline_keyboard: [
-                                [{ text: 'Provide Address', callback_data: 'provide_address' }]
-                            ]
+                            force_reply: true
+                        }
+                    })
+                    currentStep.step = 'waitForAddress'
+                    steps[chatId] = currentStep
+                } else {
+                    bot.sendMessage(chatId, 'Invalid phone number. Please provide a valid phone number.')
+                }
+            } else if (currentStep.step === 'waitForAddress') {
+                const address = text
+                //console.log(address)
+
+                try {
+                    currentStep.userInfo.address = address
+                    await currentStep.userInfo.save()
+                    bot.sendMessage(chatId, 'Address saved successfully.')
+
+                    // Show the options keyboard
+                    bot.sendMessage(chatId, 'Please select an option:', {
+                        reply_markup: {
+                            keyboard: [
+                                ['Menu', 'FoodSensitivity']
+                            ],
+                            resize_keyboard: true
                         }
                     })
 
-                    // تغییر مرحله به انتظار دریافت آدرس
-                    currentStep.step = 'waitForAddress'
+                    currentStep.step = 'chooseOption'
                     steps[chatId] = currentStep
                 } catch (error) {
-                    console.error('Error saving phone number:', error)
-                    bot.sendMessage(chatId, 'An error occurred while saving your phone number.')
+                    console.error('Error saving address:', error)
+                    bot.sendMessage(chatId, 'An error occurred while saving your address.')
                 }
-            } else {
-                bot.sendMessage(chatId, 'Invalid phone number. Please provide a valid phone number.')
-            }
-        } else if (currentStep && currentStep.step === 'waitForAddress') {
-            const address = text
-            try {
-                // ذخیره آدرس در سفارش
-                currentStep.order.customer.address = address
+            } else if (currentStep.step === 'chooseOption') {
+                if (text === 'Menu') {
+                    handleMenuOption(chatId)
+                } else if (text === 'FoodSensitivity') {
+                    setupFoodSensitivity.showList(bot, chatId)
 
-                // ذخیره سفارش در دیتابیس
-                const newOrder = new Order({
-                    items: currentStep.order.items.map(item => {
-                        return {
-                            menuId: item.menuId,
-                            quantity: item.quantity
-                        }
-                    }),
-                    customer: {
-                        name: msg.from.username,
-                        phoneNumber: currentStep.order.customer.phoneNumber,
-                        address: address
-                    }
-                })
-
-                const savedOrder = await newOrder.save()
-                console.log('Order saved:', savedOrder)
-
-                bot.sendMessage(chatId, 'Your order has been placed and saved. Thank you!')
-
-                // حذف مرحله از متغیر مراحل
-                delete steps[chatId]
-            } catch (error) {
-                console.error('Error saving order:', error)
-                bot.sendMessage(chatId, 'An error occurred while saving your order.')
+                }
             }
         }
     })
+    // تابع جدید برای نمایش منو و انتخاب غذاها
+    const handleMenuOption = async (chatId) => {
+        try {
+            const menuItems = await Menu.find({})
+            if (menuItems.length === 0) {
+                bot.sendMessage(chatId, 'There are no items available in the menu.')
+            } else {
+                const orderData = {
+                    chatId: chatId,
+                    items: []
+                }
+                let menuMessage = 'Please choose items from the menu:\n'
+                menuItems.forEach((item, index) => {
+                    menuMessage += `${index + 1} - ${item.itemName} - ${item.price} $ \n`
+                    orderData.items.push({
+                        menuId: item._id,
+                        name: item.itemName,
+                        price: item.price,
+                        quantity: 0
+                    })
+                })
+                bot.sendMessage(chatId, menuMessage, {
+                    reply_markup: {
+                        inline_keyboard: [
+                            ...menuItems.map((item, index) => {
+                                return [{ text: `+ ${item.itemName}`, callback_data: `add_${index}` }]
+                            }),
+                            [{ text: 'Confirm Order', callback_data: 'confirm' }]
+                        ]
+                    }
+                })
+                steps[chatId] = {
+                    step: 'chooseItems',
+                    order: orderData
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching menu:', error)
+            bot.sendMessage(chatId, 'An error occurred while fetching the menu.')
+        }
+    }
 
-    // ...
 
 }
 module.exports = {
     setupBot
 }
-

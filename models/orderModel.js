@@ -3,16 +3,16 @@ const mongoose = require('mongoose')
 const orderSchema = new mongoose.Schema({
     items: [
         {
-            menuId: mongoose.Schema.Types.ObjectId,
+            menuId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Menu'
+            },
             quantity: Number
         }
     ],
-    customer: {
-        name: String,
-        phoneNumber: String,
-        address: String,
-        telegramPhoneNumber: String // اضافه کردن شماره تلفن تلگرامی
-
+    userInfo: { // Add this field to link to UserInfo model
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'UserInfo'
     }
 })
 
