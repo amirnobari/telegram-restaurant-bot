@@ -1,8 +1,8 @@
+
 const TelegramBot = require('node-telegram-bot-api')
 const Order = require('../models/orderModel')
 const Menu = require('../models/menuModel')
 const UserInfo = require('../models/userInfoModel')
-const setupFoodSensitivity = require('./foodSensitivity')
 require('dotenv').config()
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true })
 const steps = {}
@@ -11,7 +11,7 @@ const setupBot = () => {
     bot.onText(/\/start/, async (msg) => {
         const chatId = msg.chat.id
         const firstName = msg.from.first_name
-        const lastName = msg.from.last_name // افزودن این خط برای گرفتن نام خانوادگی
+        const lasttName = msg.from.last_name
 
         // ذخیره مرحله انتخاب شماره تلفن و آدرس
         steps[chatId] = {
@@ -22,7 +22,7 @@ const setupBot = () => {
             }
         }
 
-        bot.sendMessage(chatId, `Welcome, ${firstName} ${lastName}! Please provide your phone number (Example: +98910000000):`, {
+        bot.sendMessage(chatId, ` Welcome, ${firstName} ${lasttName}! ⚠️ Please provide your phone number (Example: +98910000000):`, {
             reply_markup: {
                 force_reply: true
             }
@@ -30,11 +30,9 @@ const setupBot = () => {
     })
     // الگوی اعتبارسنجی شماره تلفن (مثال: +989123456789)
     const phonePattern = /^\+?[0-9]{12}$/ // تغییر الگو به 12 عدد برای مطابقت با "+989" و 9 رقم پیش‌شماره ایران
-
     bot.on('callback_query', async (query) => {
         const chatId = query.message.chat.id
         const option = query.data
-        const text = query.message.text
         if (steps[chatId]) {
             // const currentStep = steps[chatId]
             if (option === 'menu') {
@@ -47,7 +45,7 @@ const setupBot = () => {
 
                         let menuMessage = 'Please choose items from the menu:\n'
                         menuItems.forEach((item, index) => {
-                            menuMessage += `${index + 1} - ${item.itemName} - ${item.price} $ \n`
+                            menuMessage += `${index + 1} - ${item.itemName} - ${item.price} 💲 \n`
 
                             orderData.items.push({
                                 menuId: item._id,
@@ -90,7 +88,7 @@ const setupBot = () => {
 
                     updatedKeyboard.push([{ text: 'Confirm Order', callback_data: 'confirm' }])
 
-                    bot.sendMessage(chatId, 'You have added an item to your order.', {
+                    bot.sendMessage(chatId, '🎉 You have added an item to your order 🎉.', {
                         reply_markup: {
                             inline_keyboard: updatedKeyboard
                         }
@@ -107,13 +105,13 @@ const setupBot = () => {
                     //  console.log(totalItems)
 
                     if (totalItems === 0) {
-                        bot.sendMessage(chatId, 'Your order basket is empty. Please choose items before confirming.')
+                        bot.sendMessage(chatId, '⛔ Your order basket is empty. Please choose items before confirming ⛔.')
                     } else {
                         const orderTotal = currentStep.order.items.reduce((total, item) => {
                             return total + item.price * item.quantity
                         }, 0)
                         // console.log(orderTotal)
-                        bot.sendMessage(chatId, `Your order total is: $ ${orderTotal} . Please confirm your order by pressing the "Confirm" button below.`, {
+                        bot.sendMessage(chatId, `Your order total is: 💲 ${orderTotal} . Please confirm your order by pressing the "Confirm" button below.`, {
                             reply_markup: {
                                 inline_keyboard: [
                                     [{ text: 'Place Order', callback_data: 'place_order' }],
@@ -126,11 +124,6 @@ const setupBot = () => {
                         currentStep.step = 'confirmOrder'
                         steps[chatId] = currentStep // Save the changes back to the steps object
                     }
-                }
-            } else if (option === 'cancel_order') {
-                const currentStep = steps[chatId]
-                if (currentStep && currentStep.step === 'confirmOrder') {
-                    handleMenuOption(chatId) // Return to the menu options
                 }
             } else if (option === 'place_order') {
                 const currentStep = steps[chatId]
@@ -151,7 +144,7 @@ const setupBot = () => {
                                 await order.save()
 
                                 // Inform the user that the order has been placed
-                                bot.sendMessage(chatId, 'Your order has been placed successfully.')
+                                bot.sendMessage(chatId, '🎉 Your order has been placed successfully 🎉.')
 
                                 // Clean up the steps object
                                 delete steps[chatId]
@@ -160,7 +153,7 @@ const setupBot = () => {
                                 bot.sendMessage(chatId, 'An error occurred while placing your order.')
                             }
                         } else {
-                            bot.sendMessage(chatId, 'Your order basket is empty. Please choose items before confirming.')
+                            bot.sendMessage(chatId, 'Your order basket is empty. Please choose items before confirming 🙏.')
                         }
                     }
 
@@ -181,12 +174,11 @@ const setupBot = () => {
                     currentStep.userInfo = new UserInfo({
                         phoneNumber: phoneNumber,
                         address: '',
-                        firstname: msg.from.first_name,
-                        lastname: msg.from.last_name
+                        username: msg.from.first_name
                     })
                     await currentStep.userInfo.save()
 
-                    bot.sendMessage(chatId, 'Phone number saved. Please provide your address:', {
+                    bot.sendMessage(chatId, 'Phone number saved 👌. Please provide your address:', {
                         reply_markup: {
                             force_reply: true
                         }
@@ -194,7 +186,7 @@ const setupBot = () => {
                     currentStep.step = 'waitForAddress'
                     steps[chatId] = currentStep
                 } else {
-                    bot.sendMessage(chatId, 'Invalid phone number. Please provide a valid phone number.')
+                    bot.sendMessage(chatId, '⛔ Invalid phone number. Please provide a valid phone number ⛔.')
                 }
             } else if (currentStep.step === 'waitForAddress') {
                 const address = text
@@ -203,77 +195,56 @@ const setupBot = () => {
                 try {
                     currentStep.userInfo.address = address
                     await currentStep.userInfo.save()
-                    bot.sendMessage(chatId, 'Address saved successfully.')
-
-                    // Show the options keyboard
-                    bot.sendMessage(chatId, 'Please select an option:', {
-                        reply_markup: {
-                            keyboard: [
-                                ['Menu', 'FoodSensitivity']
-                            ],
-                            resize_keyboard: true
-                        }
-                    })
-
-                    currentStep.step = 'chooseOption'
-                    steps[chatId] = currentStep
+                    bot.sendMessage(chatId, 'Address saved successfully 👌')
+                    bot.sendMessage(chatId, '⚠️ For information about food allergies, call this number : 09367482353 ⚠️')
+                    delete steps[chatId] // Clear the steps for this chat
                 } catch (error) {
                     console.error('Error saving address:', error)
                     bot.sendMessage(chatId, 'An error occurred while saving your address.')
                 }
-            } else if (currentStep.step === 'chooseOption') {
-                if (text === 'Menu') {
-                    handleMenuOption(chatId)
-                } else if (text === 'FoodSensitivity') {
-                    setupFoodSensitivity.showList(bot, chatId)
 
+
+                try {
+                    const menuItems = await Menu.find({})
+                    if (menuItems.length === 0) {
+                        bot.sendMessage(chatId, 'There are no items available in the menu.')
+                    } else {
+                        const orderData = {
+                            chatId: chatId,
+                            items: []
+                        }
+                        let menuMessage = 'Please choose items from the menu:\n'
+                        menuItems.forEach((item, index) => {
+                            menuMessage += `${index + 1} - ${item.itemName} - ${item.price} 💲 \n`
+                            orderData.items.push({
+                                menuId: item._id,
+                                name: item.itemName,
+                                price: item.price,
+                                quantity: 0
+                            })
+                        })
+                        bot.sendMessage(chatId, menuMessage, {
+                            reply_markup: {
+                                inline_keyboard: [
+                                    ...menuItems.map((item, index) => {
+                                        return [{ text: `+ ${item.itemName}`, callback_data: `add_${index}` }]
+                                    }),
+                                    [{ text: 'Confirm Order', callback_data: 'confirm' }]
+                                ]
+                            }
+                        })
+                        steps[chatId] = {
+                            step: 'chooseItems',
+                            order: orderData
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching menu:', error)
+                    bot.sendMessage(chatId, 'An error occurred while fetching the menu.')
                 }
             }
         }
     })
-    // تابع جدید برای نمایش منو و انتخاب غذاها
-    const handleMenuOption = async (chatId) => {
-        try {
-            const menuItems = await Menu.find({})
-            if (menuItems.length === 0) {
-                bot.sendMessage(chatId, 'There are no items available in the menu.')
-            } else {
-                const orderData = {
-                    chatId: chatId,
-                    items: []
-                }
-                let menuMessage = 'Please choose items from the menu:\n'
-                menuItems.forEach((item, index) => {
-                    menuMessage += `${index + 1} - ${item.itemName} - ${item.price} $ \n`
-                    orderData.items.push({
-                        menuId: item._id,
-                        name: item.itemName,
-                        price: item.price,
-                        quantity: 0
-                    })
-                })
-                bot.sendMessage(chatId, menuMessage, {
-                    reply_markup: {
-                        inline_keyboard: [
-                            ...menuItems.map((item, index) => {
-                                return [{ text: `+ ${item.itemName}`, callback_data: `add_${index}` }]
-                            }),
-                            [{ text: 'Confirm Order', callback_data: 'confirm' }]
-                        ]
-                    }
-                })
-                steps[chatId] = {
-                    step: 'chooseItems',
-                    order: orderData
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching menu:', error)
-            bot.sendMessage(chatId, 'An error occurred while fetching the menu.')
-        }
-    }
-
-
 }
 module.exports = {
     setupBot
