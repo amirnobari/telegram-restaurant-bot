@@ -1,37 +1,58 @@
-version: '3.9'
+version: "3.9"
+
 networks:
   default:
-    name: startnode-app-net
+    name: telegram-resturant-bot
     driver: bridge
+
 services:
-  bot-app:
+  app:
+    container_name: telegram-bot-app
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    image: bot-app/app-base:latest
+    restart: always
+    env_file:
+      - ./.env
     networks:
       - default
-    build:
-      context: .
-      dockerfile: Dockerfile
     ports:
       - ${APP_PORT}:${APP_PORT}
+    volumes:
+      - .:/opt
+      - ./docker/storage:${APP_STORAGE_PATH}:rw
+    working_dir: /opt
+    depends_on:
+      - db_mongo
+    command: node bot.js
+  
+  db_mongo:
+    container_name: bot-app-db-mongo
+    image: mongo:6.0.3
+    restart: always
+    hostname: ${MONGO_HOSTNAME}
     environment:
-      APP_PORT: ${APP_PORT}
-      MONGO_HOSTNAME: ${MONGO_HOSTNAME}
-      MONGO_PORT: ${MONGO_PORT}
-  db-mongo:
+      MONGO_INITDB_USERNAME: ${MONGO_INITDB_USERNAME}
+      MONGO_INITDB_PASSWORD: ${MONGO_INITDB_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
     networks:
       - default
-    image: mongo
-    ports:
-      - ${MONGO_PORT}:${MONGO_PORT}
+    volumes:
+      - ./docker/volumes/db_mongo/data:/data/db:rw
+      - ./docker/db_mongo_initdb.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
 
-  mongo-express:
+  mongo_express:
+    container_name: bot-app-db-mongo-express
     image: mongo-express
-    networks:
-      - default
-    ports:
-      - '8080:8081'
+    restart: always
     environment:
-      ME_CONFIG_MONGODB_SERVER: ${MONGO_HOSTNAME}
-      ME_CONFIG_MONGODB_PORT: ${MONGO_PORT}
       ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_USERNAME}
       ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_PASSWORD}
-
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_HOSTNAME}:${MONGO_PORT}/${MONGO_INITDB_DATABASE}
+    networks:
+      - default
+    ports:
+      - 8081:8081
+    depends_on:
+      - db_mongo
