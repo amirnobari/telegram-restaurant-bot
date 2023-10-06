@@ -53,7 +53,82 @@ const sendMenu = async (chatId) => {
 }
 
 const setupBot = () => {
+    const phonePattern = /^\+?[0-9]{12}$/ // تغییر الگو به 12 عدد برای مطابقت با "+989" و 9 رقم پیش‌شماره ایران
+    ///////////////////update////////////////////////////
+    bot.onText(/\/update/, async (msg) => {
+        const chatId = msg.chat.id
+        const existingUser = await UserInfo.findOne({ chatId })
 
+        if (existingUser) {
+            // نمایش اطلاعات کاربر
+            bot.sendMessage(chatId, `Your current information:\nPhone Number: ${existingUser.phoneNumber}\nAddress: ${existingUser.address}`)
+            bot.sendMessage(chatId, 'Please provide your updated phone number (Example: +98910000000):', {
+                reply_markup: {
+                    force_reply: true
+                }
+            })
+
+            // تنظیم مرحله به 'updatePhoneNumber' برای هندل کردن پاسخ
+            steps[chatId] = {
+                step: 'updatePhoneNumber',
+                userInfo: existingUser
+            }
+        } else {
+            bot.sendMessage(chatId, '⛔ You need to provide your information first. Use the /start command. ⛔')
+        }
+    })
+    //change phoneNumber config
+    bot.on('text', async (msg) => {
+        const chatId = msg.chat.id
+        const text = msg.text
+        const currentStep = steps[chatId]
+
+        if (currentStep && currentStep.step === 'updatePhoneNumber') {
+            // بررسی صحت شماره تلفن و به روز رسانی
+            const phoneNumber = text
+
+            if (phonePattern.test(phoneNumber)) {
+                currentStep.userInfo.phoneNumber = phoneNumber
+                await currentStep.userInfo.save()
+                bot.sendMessage(chatId, 'Phone number updated successfully 🎉. Now, please provide your updated address:', {
+                    reply_markup: {
+                        force_reply: true
+                    }
+                })
+
+                // تغییر مرحله به 'updateAddress'
+                currentStep.step = 'updateAddress'
+                steps[chatId] = currentStep
+            } else {
+                bot.sendMessage(chatId, '⛔ Invalid phone number. Please provide a valid phone number (Example: +98910000000) ⛔.')
+            }
+        }
+    })
+    //change Address config
+    bot.on('text', async (msg) => {
+        const chatId = msg.chat.id
+        const text = msg.text
+        const currentStep = steps[chatId]
+
+        if (currentStep && currentStep.step === 'updateAddress') {
+            // به روز رسانی آدرس
+            const address = text
+
+            try {
+                currentStep.userInfo.address = address
+                await currentStep.userInfo.save()
+                bot.sendMessage(chatId, 'Address updated successfully 🎉. You can now use other commands.')
+                delete steps[chatId] // حذف مراحل برای این چت
+            } catch (error) {
+                console.error('Error updating address:', error)
+                bot.sendMessage(chatId, '⛔ An error occurred while updating your address. ⛔')
+            }
+        }
+    })
+
+    //////////////////update////////////////////////////
+
+    /////////////////start/////////////////////////////
     bot.onText(/\/start/, async (msg) => {
         const chatId = msg.chat.id
         const firstName = msg.from.first_name
@@ -82,9 +157,7 @@ const setupBot = () => {
             })
         }
     })
-
-    const phonePattern = /^\+?[0-9]{12}$/ // تغییر الگو به 12 عدد برای مطابقت با "+989" و 9 رقم پیش‌شماره ایران
-
+    //handle phoneNumber&&Addres
     bot.on('text', async (msg) => {
         const chatId = msg.chat.id
         const text = msg.text
@@ -134,6 +207,7 @@ const setupBot = () => {
             }
         }
     })
+    //handle menu and chosse food
     bot.on('callback_query', async (query) => {
         const chatId = query.message.chat.id
         const option = query.data
@@ -250,6 +324,7 @@ const setupBot = () => {
 
         }
     })
+    ////////////////start/////////////////////////////
 }
 
 module.exports = {
