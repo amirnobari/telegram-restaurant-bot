@@ -17,7 +17,7 @@ app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
 
 
-mongoose.connect('mongodb://127.0.0.1/restaurant', {
+mongoose.connect(`mongodb://${process.env.MONGO_HOSTNAME}:${process.env.MONGO_PORT}/${process.env.MONGO_INITDB_DATABASE}`, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 }).then(() => {
