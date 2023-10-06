@@ -13,23 +13,52 @@
                 <th>Address</th>
                 <th>Item</th>
                 <th>Quantity</th>
+                <th>Bill</th>
             </tr>
         </thead>
         <tbody>
-    <% orders.forEach(order => { %>
-        <tr>
-            <td><%= order._id %></td>
-            <td><%= order.userInfo ? order.userInfo.username : 'Unknown Customer' %></td>
-            <td><%= order.userInfo ? order.userInfo.phoneNumber : 'Unknown Phone Number' %></td>
-            <td><%= order.userInfo ? order.userInfo.address : 'Unknown Address' %></td>
-            <% order.items.forEach(item => { %>
-                <td><%= item.menuId.itemName %></td>
-                <td><%= item.quantity %></td>
+            <% orders.forEach(order => { %>
+                <tr>
+                    <td><%= order._id %></td>
+                    <td>
+                        <% if (order.userInfo) { %>
+                            <%= order.userInfo.firstname %> <%= order.userInfo.lastname %>
+                        <% } else { %>
+                            Unknown Customer
+                        <% } %>
+                    </td>
+                    <td>
+                        <% if (order.userInfo) { %>
+                            <%= order.userInfo.phoneNumber %>
+                        <% } else { %>
+                            Unknown Phone Number
+                        <% } %>
+                    </td>
+                    <td><%= order.userInfo ? order.userInfo.address : 'Unknown Address' %></td>
+                    <td>
+                        <ul>
+                            <% order.items.forEach(item => { %>
+                                <li><%= item.menuId.itemName %></li>
+                            <% }); %>
+                        </ul>
+                    </td>
+                    <td>
+                        <ul>
+                            <% order.items.forEach(item => { %>
+                                <li><%= item.quantity %> عدد</li>
+                            <% }); %>
+                        </ul>
+                    </td>
+                    <td>
+                        <% let totalOrderPrice = 0; %>
+                        <% order.items.forEach(item => { %>
+                            <% totalOrderPrice += item.price * item.quantity; %>
+                        <% }); %>
+                        <%= totalOrderPrice %> $
+                    </td> <!-- نمایش مبلغ کل در اینجا -->
+                </tr>
             <% }); %>
-        </tr>
-    <% }); %>
-</tbody>
-
+        </tbody>
     </table>
 </body>
 </html>
