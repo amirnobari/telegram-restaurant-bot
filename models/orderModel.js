@@ -1,4 +1,5 @@
-const mongoose = require('mongoose')
+const mongoose = require('mongoose');
+const UserInfo = require('./userInfoModel');
 
 const orderSchema = new mongoose.Schema({
     items: [
@@ -7,15 +8,17 @@ const orderSchema = new mongoose.Schema({
                 type: mongoose.Schema.Types.ObjectId,
                 ref: 'Menu'
             },
-            quantity: Number
+            quantity: Number,
+            price:Number
         }
     ],
-    userInfo: { // Add this field to link to UserInfo model
+    chatId: String, // افزودن فیلد chatId به مدل order
+    userInfo: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'UserInfo'
     }
-})
+});
 
-const Order = mongoose.model('Order', orderSchema)
+const Order = mongoose.model('Order', orderSchema);
 
-module.exports = Order
+module.exports = Order;
