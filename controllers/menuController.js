@@ -18,9 +18,9 @@ const addMenuItem = async (req, res) => {
 
         const savedMenuItem = await newMenuItem.save()
         console.log('New menu item added:', savedMenuItem)
-
+        
         res.redirect('/menus/edit') // Redirect back to the edit menu page
-    } catch (error) {
+            } catch (error) {
         console.error('Error adding new menu item:', error)
         res.status(500).send('An error occurred while adding the new menu item.')
     }
