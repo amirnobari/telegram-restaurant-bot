@@ -1,6 +1,8 @@
 const express = require('express')
 const app = express()
 const bodyParser = require('body-parser')
+const swaggerUi = require("swagger-ui-express")
+const swaggerDocument = require('./swagger.json');
 const mongoose = require('mongoose')
 const path = require('path')
 const botController = require('./controllers/botController')
@@ -30,6 +32,9 @@ app.use('/orders', ordersRouter)
 app.use('/menus', menuRoute) // اضافه کردن مسیر منو
 
 botController.setupBot()
+
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
 
 const PORT = process.env.APP_PORT || 5555 // Use 5555 as default if APP_PORT is not set in .env
 
