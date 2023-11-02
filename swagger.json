@@ -1,0 +1,71 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Telegram-Resturant-Bot Express API with Swagger",
+        "version": "1.0.0",
+        "description": "This is a bot in Telegram that I built for the food ordering and reservation system of a restaurant CRUD API application made with Express and documented with Swagger"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:5555"
+        }
+    ],
+    "paths": {
+        "/menus/edit": {
+            "get": {
+                "summary": "Get the Edit Menu Page",
+                "operationId": "getEditMenuPage",
+                "responses": {
+                    "200": {
+                        "description": "Successful operation"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Add a New Menu Item",
+                "operationId": "addMenuItem",
+                "requestBody": {
+                    "description": "Menu Item data",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "itemName": {
+                                        "type": "string"
+                                    },
+                                    "category": {
+                                        "type": "string"
+                                    },
+                                    "price": {
+                                        "type": "number"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful operation"
+                    },
+                    "500": {
+                        "description": "Error occurred"
+                    }
+                }
+            }
+        },
+        "/orders": {
+            "get": {
+                "summary": "Get the Orders Menu Page",
+                "operationId": "getOrdersMenuPage",
+                "responses": {
+                    "200": {
+                        "description": "Successful operation"
+                    }
+                }
+            }
+        }
+    },
+    "components": {}
+}
